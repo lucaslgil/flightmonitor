@@ -1,0 +1,38 @@
+{
+  "name": "flight-monitor-backend",
+  "version": "1.0.0",
+  "description": "Backend Node.js para monitoramento de voos",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node src/scripts/migrate.js",
+    "test": "echo \"Tests not configured yet\" && exit 0"
+  },
+  "keywords": [
+    "flights",
+    "amadeus",
+    "monitoring"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.86.0",
+    "amadeus": "^8.1.0",
+    "axios": "^1.6.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-async-errors": "^3.1.1",
+    "node-cron": "^3.0.3",
+    "node-telegram-bot-api": "^0.64.0",
+    "nodemailer": "^6.9.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

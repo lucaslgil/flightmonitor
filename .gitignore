@@ -1,0 +1,16 @@
+# Flight Monitor
+
+node_modules/
+.env
+.env.local
+*.log
+dist/
+build/
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
