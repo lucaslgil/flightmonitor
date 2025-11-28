@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plane } from 'lucide-react';
+import { Search, Plane, MapPin } from 'lucide-react';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export default function AirportAutocomplete({ value, onChange, placeholder, required }) {
   const [inputValue, setInputValue] = useState(value || '');
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState({ cities: [], airports: [] });
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedSection, setSelectedSection] = useState('cities'); // 'cities' ou 'airports'
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -28,22 +29,24 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
   useEffect(() => {
     const searchAirports = async () => {
       if (!inputValue || inputValue.length < 1) {
-        setSuggestions([]);
+        setSuggestions({ cities: [], airports: [] });
         setIsOpen(false);
         return;
       }
 
       setIsLoading(true);
       try {
-        const response = await axios.get(`${API_URL}/flights/airports/search`, {
+        const response = await axios.get(`${API_URL}/flights/airports/search-with-cities`, {
           params: { q: inputValue }
         });
         setSuggestions(response.data);
-        setIsOpen(response.data.length > 0);
+        const hasResults = response.data.cities.length > 0 || response.data.airports.length > 0;
+        setIsOpen(hasResults);
         setSelectedIndex(-1);
+        setSelectedSection(response.data.cities.length > 0 ? 'cities' : 'airports');
       } catch (error) {
         console.error('Erro ao buscar aeroportos:', error);
-        setSuggestions([]);
+        setSuggestions({ cities: [], airports: [] });
       } finally {
         setIsLoading(false);
       }
@@ -54,21 +57,37 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
     return () => clearTimeout(debounceTimer);
   }, [inputValue]);
 
-  const handleSelect = (airport) => {
-    setInputValue(airport.iataCode);
-    onChange(airport.iataCode);
+  const handleSelect = (item) => {
+    if (item.type === 'city') {
+      // Se selecionou cidade, mostra o nome da cidade
+      setInputValue(`${item.city} (Todos)`);
+      // Envia os códigos IATA de todos os aeroportos da cidade
+      onChange(item.airports.map(a => a.iataCode).join(','), item);
+    } else {
+      // Se selecionou aeroporto específico
+      setInputValue(item.iataCode);
+      onChange(item.iataCode, item);
+    }
     setIsOpen(false);
-    setSuggestions([]);
+    setSuggestions({ cities: [], airports: [] });
+  };
+
+  const getAllSuggestions = () => {
+    return [
+      ...suggestions.cities.map(c => ({ ...c, section: 'cities' })),
+      ...suggestions.airports.map(a => ({ ...a, section: 'airports' }))
+    ];
   };
 
   const handleKeyDown = (e) => {
-    if (!isOpen || suggestions.length === 0) return;
+    const allSuggestions = getAllSuggestions();
+    if (!isOpen || allSuggestions.length === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
         setSelectedIndex(prev => 
-          prev < suggestions.length - 1 ? prev + 1 : prev
+          prev < allSuggestions.length - 1 ? prev + 1 : prev
         );
         break;
       case 'ArrowUp':
@@ -78,7 +97,7 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
       case 'Enter':
         e.preventDefault();
         if (selectedIndex >= 0) {
-          handleSelect(suggestions[selectedIndex]);
+          handleSelect(allSuggestions[selectedIndex]);
         }
         break;
       case 'Escape':
@@ -118,33 +137,80 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
         )}
       </div>
 
-      {isOpen && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {suggestions.map((airport, index) => (
-            <button
-              key={airport.iataCode}
-              type="button"
-              onClick={() => handleSelect(airport)}
-              onMouseEnter={() => setSelectedIndex(index)}
-              className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors flex items-start gap-3 ${
-                index === selectedIndex ? 'bg-gray-700' : ''
-              }`}
-            >
-              <Plane className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-purple-400">{airport.iataCode}</span>
-                  <span className="text-gray-400 text-xs">{airport.type}</span>
-                </div>
-                <div className="text-sm text-white truncate">{airport.name}</div>
-                {airport.city && (
-                  <div className="text-xs text-gray-400">
-                    {airport.city}{airport.country ? `, ${airport.country}` : ''}
-                  </div>
-                )}
+      {isOpen && (suggestions.cities.length > 0 || suggestions.airports.length > 0) && (
+        <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+          {/* Seção de Cidades */}
+          {suggestions.cities.length > 0 && (
+            <div>
+              <div className="px-4 py-2 bg-gray-750 border-b border-gray-700 text-xs font-semibold text-purple-400 uppercase">
+                🏙️ Buscar em todos os aeroportos da cidade
               </div>
-            </button>
-          ))}
+              {suggestions.cities.map((city, index) => (
+                <button
+                  key={`city-${city.city}-${city.country}`}
+                  type="button"
+                  onClick={() => handleSelect(city)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors flex items-start gap-3 border-b border-gray-750 ${
+                    index === selectedIndex ? 'bg-gray-700' : ''
+                  }`}
+                >
+                  <MapPin className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-green-400">{city.city}</span>
+                      <span className="text-gray-400 text-xs">{city.country}</span>
+                    </div>
+                    <div className="text-sm text-white">
+                      Todos os aeroportos ({city.totalAirports})
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {city.airports.map(a => a.iataCode).join(', ')}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Seção de Aeroportos */}
+          {suggestions.airports.length > 0 && (
+            <div>
+              {suggestions.cities.length > 0 && (
+                <div className="px-4 py-2 bg-gray-750 border-b border-gray-700 text-xs font-semibold text-purple-400 uppercase">
+                  ✈️ Aeroportos específicos
+                </div>
+              )}
+              {suggestions.airports.map((airport, index) => {
+                const globalIndex = suggestions.cities.length + index;
+                return (
+                  <button
+                    key={`airport-${airport.iataCode}`}
+                    type="button"
+                    onClick={() => handleSelect(airport)}
+                    onMouseEnter={() => setSelectedIndex(globalIndex)}
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors flex items-start gap-3 ${
+                      globalIndex === selectedIndex ? 'bg-gray-700' : ''
+                    }`}
+                  >
+                    <Plane className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-purple-400">{airport.iataCode}</span>
+                        {airport.type && <span className="text-gray-400 text-xs">{airport.type}</span>}
+                      </div>
+                      <div className="text-sm text-white truncate">{airport.name}</div>
+                      {airport.city && (
+                        <div className="text-xs text-gray-400">
+                          {airport.city}{airport.country ? `, ${airport.country}` : ''}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

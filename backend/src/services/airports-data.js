@@ -279,3 +279,105 @@ export function getAirportByCode(iataCode) {
     airport => airport.iataCode.toUpperCase() === iataCode.toUpperCase()
   );
 }
+
+/**
+ * Agrupa aeroportos por cidade
+ * Retorna { city, country, airports: [...] }
+ */
+export function getAirportsByCity(cityName) {
+  const normalizedCity = removeAccents(cityName.toLowerCase().trim());
+  
+  const cityAirports = airportsDatabase.filter(airport => {
+    const normalizedAirportCity = removeAccents(airport.city.toLowerCase());
+    return normalizedAirportCity === normalizedCity || 
+           normalizedAirportCity.includes(normalizedCity);
+  });
+
+  if (cityAirports.length === 0) return null;
+
+  return {
+    city: cityAirports[0].city,
+    country: cityAirports[0].country,
+    airports: cityAirports,
+    iataCode: `${cityAirports[0].city.substring(0, 3).toUpperCase()}-CITY`, // código virtual para cidade
+    totalAirports: cityAirports.length
+  };
+}
+
+/**
+ * Busca e agrupa resultados por cidade e aeroportos individuais
+ * Retorna tanto opções de cidade quanto aeroportos específicos
+ */
+export function searchAirportsWithCities(keyword) {
+  if (!keyword || keyword.length < 1) {
+    return { cities: [], airports: [] };
+  }
+
+  const searchTerm = removeAccents(keyword.toLowerCase().trim());
+  const cityGroups = new Map();
+  const individualResults = [];
+
+  // Primeiro, agrupa por cidade
+  airportsDatabase.forEach(airport => {
+    const cityKey = `${airport.city}-${airport.country}`;
+    if (!cityGroups.has(cityKey)) {
+      cityGroups.set(cityKey, {
+        city: airport.city,
+        country: airport.country,
+        airports: [],
+        score: 0
+      });
+    }
+    cityGroups.get(cityKey).airports.push(airport);
+  });
+
+  // Busca em cidades e aeroportos individuais
+  const cityResults = [];
+  
+  cityGroups.forEach((group) => {
+    let cityScore = 0;
+    const normalizedCity = removeAccents(group.city.toLowerCase());
+    const normalizedCountry = removeAccents(group.country.toLowerCase());
+
+    // Score para cidade
+    if (normalizedCity === searchTerm) {
+      cityScore = 1000;
+    } else if (normalizedCity.startsWith(searchTerm)) {
+      cityScore = 800;
+    } else if (normalizedCity.includes(searchTerm)) {
+      cityScore = 400;
+    } else if (normalizedCountry === searchTerm) {
+      cityScore = 300;
+    } else if (normalizedCountry.includes(searchTerm)) {
+      cityScore = 200;
+    }
+
+    if (cityScore > 0 && group.airports.length > 1) {
+      cityResults.push({
+        type: 'city',
+        city: group.city,
+        country: group.country,
+        airports: group.airports,
+        totalAirports: group.airports.length,
+        iataCode: `CITY-${group.city.substring(0, 3).toUpperCase()}`,
+        label: `${group.city} (Todos os aeroportos - ${group.airports.length})`,
+        searchLabel: `${group.city}, ${group.country} - Todos os aeroportos`,
+        score: cityScore
+      });
+    }
+  });
+
+  // Busca aeroportos individuais (usa a função existente)
+  const airportResults = searchAirports(keyword).map(result => ({
+    ...result,
+    type: 'airport'
+  }));
+
+  // Ordena cidades por score
+  cityResults.sort((a, b) => b.score - a.score);
+
+  return {
+    cities: cityResults.slice(0, 5),
+    airports: airportResults.slice(0, 15)
+  };
+}

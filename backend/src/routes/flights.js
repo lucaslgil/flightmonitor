@@ -11,6 +11,7 @@ import {
 import { getLowestPrice, searchLocations, searchFlightOffers } from '../services/amadeus.js';
 import { checkFlightPrice } from '../workers/monitor.js';
 import { findCheapestFlights, formatSearchResults } from '../services/smart-search.js';
+import { searchAirports, searchAirportsWithCities, getAirportsByCity } from '../services/airports-data.js';
 
 const router = express.Router();
 
@@ -18,12 +19,45 @@ const router = express.Router();
 router.get('/airports/search', async (req, res) => {
   const { q } = req.query;
   
-  if (!q || q.length < 2) {
+  if (!q || q.length < 1) {
     return res.json([]);
   }
 
-  const locations = await searchLocations(q);
-  res.json(locations);
+  try {
+    // Tenta buscar via Amadeus API primeiro
+    const locations = await searchLocations(q);
+    
+    if (locations && locations.length > 0) {
+      return res.json(locations);
+    }
+
+    // Fallback para banco local
+    console.log('🔄 Using local airport database (Amadeus API not available)');
+    const localResults = searchAirports(q);
+    res.json(localResults);
+  } catch (error) {
+    console.error('Erro ao buscar aeroportos:', error.message);
+    // Em caso de erro, usa banco local
+    const localResults = searchAirports(q);
+    res.json(localResults);
+  }
+});
+
+// GET /api/flights/airports/search-with-cities - Buscar com agrupamento por cidade
+router.get('/airports/search-with-cities', async (req, res) => {
+  const { q } = req.query;
+  
+  if (!q || q.length < 1) {
+    return res.json({ cities: [], airports: [] });
+  }
+
+  try {
+    const results = searchAirportsWithCities(q);
+    res.json(results);
+  } catch (error) {
+    console.error('Erro ao buscar aeroportos com cidades:', error.message);
+    res.json({ cities: [], airports: [] });
+  }
 });
 
 // POST /api/flights/search/smart - Busca inteligente de voos mais baratos
