@@ -27,7 +27,7 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
   // Buscar aeroportos conforme digita
   useEffect(() => {
     const searchAirports = async () => {
-      if (inputValue.length < 2) {
+      if (!inputValue || inputValue.length < 1) {
         setSuggestions([]);
         setIsOpen(false);
         return;
@@ -49,7 +49,8 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
       }
     };
 
-    const debounceTimer = setTimeout(searchAirports, 300);
+    // Debounce menor para busca mais responsiva
+    const debounceTimer = setTimeout(searchAirports, 200);
     return () => clearTimeout(debounceTimer);
   }, [inputValue]);
 
@@ -87,14 +88,10 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
   };
 
   const handleInputChange = (e) => {
-    const value = e.target.value;
+    const value = e.target.value.toUpperCase();
     setInputValue(value);
-    // Só atualiza o valor do formulário se for um código IATA válido (3 letras)
-    if (value.length === 3 && /^[A-Z]{3}$/.test(value.toUpperCase())) {
-      onChange(value.toUpperCase());
-    } else {
-      onChange('');
-    }
+    // Atualiza imediatamente para permitir busca dinâmica
+    onChange(value);
   };
 
   return (

@@ -155,7 +155,7 @@ function removeAccents(str) {
  * Suporta busca por: IATA code, cidade, país, nome do aeroporto, aliases
  */
 export function searchAirports(keyword) {
-  if (!keyword || keyword.length < 2) {
+  if (!keyword || keyword.length < 1) {
     return [];
   }
 
