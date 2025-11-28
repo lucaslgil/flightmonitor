@@ -91,8 +91,9 @@ export default function SmartSearch({ onFlightSelect }) {
               </label>
               <AirportAutocomplete
                 value={formData.origin}
-                onChange={(airport) => setFormData({ ...formData, origin: airport.iataCode })}
+                onChange={(value) => setFormData({ ...formData, origin: value })}
                 placeholder="De onde?"
+                allowCities={true}
               />
             </div>
 
@@ -103,8 +104,9 @@ export default function SmartSearch({ onFlightSelect }) {
               </label>
               <AirportAutocomplete
                 value={formData.destination}
-                onChange={(airport) => setFormData({ ...formData, destination: airport.iataCode })}
+                onChange={(value) => setFormData({ ...formData, destination: value })}
                 placeholder="Para onde?"
+                allowCities={true}
               />
             </div>
 

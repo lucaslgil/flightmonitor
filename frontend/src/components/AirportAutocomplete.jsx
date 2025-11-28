@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-export default function AirportAutocomplete({ value, onChange, placeholder, required }) {
+export default function AirportAutocomplete({ value, onChange, placeholder, required, allowCities = false }) {
   const [inputValue, setInputValue] = useState(value || '');
   const [suggestions, setSuggestions] = useState({ cities: [], airports: [] });
   const [isOpen, setIsOpen] = useState(false);
@@ -59,10 +59,17 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
 
   const handleSelect = (item) => {
     if (item.type === 'city') {
-      // Se selecionou cidade, mostra o nome da cidade
-      setInputValue(`${item.city} (Todos)`);
-      // Envia os códigos IATA de todos os aeroportos da cidade
-      onChange(item.airports.map(a => a.iataCode).join(','), item);
+      if (allowCities) {
+        // Se permite cidades, mostra o nome da cidade
+        setInputValue(`${item.city} (Todos)`);
+        // Envia os códigos IATA de todos os aeroportos da cidade
+        onChange(item.airports.map(a => a.iataCode).join(','), item);
+      } else {
+        // Se não permite cidades, seleciona o primeiro aeroporto principal
+        const mainAirport = item.airports[0];
+        setInputValue(mainAirport.iataCode);
+        onChange(mainAirport.iataCode, mainAirport);
+      }
     } else {
       // Se selecionou aeroporto específico
       setInputValue(item.iataCode);
@@ -140,7 +147,7 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
       {isOpen && (suggestions.cities.length > 0 || suggestions.airports.length > 0) && (
         <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-80 overflow-y-auto">
           {/* Seção de Cidades */}
-          {suggestions.cities.length > 0 && (
+          {allowCities && suggestions.cities.length > 0 && (
             <div>
               <div className="px-4 py-2 bg-gray-750 border-b border-gray-700 text-xs font-semibold text-purple-400 uppercase">
                 🏙️ Buscar em todos os aeroportos da cidade
@@ -176,13 +183,13 @@ export default function AirportAutocomplete({ value, onChange, placeholder, requ
           {/* Seção de Aeroportos */}
           {suggestions.airports.length > 0 && (
             <div>
-              {suggestions.cities.length > 0 && (
+              {allowCities && suggestions.cities.length > 0 && (
                 <div className="px-4 py-2 bg-gray-750 border-b border-gray-700 text-xs font-semibold text-purple-400 uppercase">
                   ✈️ Aeroportos específicos
                 </div>
               )}
               {suggestions.airports.map((airport, index) => {
-                const globalIndex = suggestions.cities.length + index;
+                const globalIndex = allowCities ? suggestions.cities.length + index : index;
                 return (
                   <button
                     key={`airport-${airport.iataCode}`}
